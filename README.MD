@@ -12,4 +12,4 @@ cargo run %1 %2 [%3]
 Result: stdout with string lines from txt file in which the search quary occurs
 
 Example:
-cargo run cargo run to poem.txt 1 > output.txt
+cargo run to poem.txt 1 > output.txt
