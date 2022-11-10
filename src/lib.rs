@@ -1,6 +1,6 @@
+use std::env::Args;
 use std::error::Error;
 use std::fs;
-use std::env;
 
 pub struct Config {
     pub query: String,
@@ -8,24 +8,31 @@ pub struct Config {
     pub case_sensitive: bool,
 }
 impl Config {
-    pub fn new(args: Vec<String>) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("Not enought arguments");   
+    pub fn new(mut args: std::env::Args) -> Result<Config, &'static str> {
+        args.next();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Did'n find quary"),
         };
-        let case_sensitive = if args.len() == 3 {
-            env::var("CASE_INSENSITIVE").is_err()    
-        } else {
-            args[3] == "1"
+        let filename = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Did'n find filename"),
         };
-        let query = args[1].clone();
-        let filename = args[2].clone();
-        Ok(Config { query, filename, case_sensitive })
+        let case_sensitive = match args.next() {
+            Some(arg) => arg == "1",
+            None => std::env::var("CASE_INSENSITIVE").is_err(),
+        };
+        Ok(Config {
+            query,
+            filename,
+            case_sensitive,
+        })
     }
 }
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
     let results = if config.case_sensitive {
-        search(&config.query, &contents)    
+        search(&config.query, &contents)
     } else {
         search_case_insensitive(&config.query, &contents)
     };
@@ -35,24 +42,16 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = Vec::new();
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    };
-    results
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
-
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = Vec::new();
-    let query = query.to_lowercase();
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            results.push(line);
-        }
-    };
-    results
+    contents
+        .lines()
+        .filter(|line| line.to_lowercase().contains(&query.to_lowercase()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -62,14 +61,14 @@ mod test {
     #[test]
     #[ignore]
     fn config_new_not_enought_parameters() -> Result<(), &'static str> {
-        let args = vec![String::from("1")];
+        let args = std::env::args();
         Config::new(args)?;
         Ok(())
     }
     #[test]
     #[ignore]
     fn config_new_enought_parameters() -> Result<(), &'static str> {
-        let args = vec![String::from("1"), String::from("2"), String::from("3")];
+        let args = std::env::args();
         Config::new(args)?;
         Ok(())
     }
@@ -114,6 +113,9 @@ Rust:
 safe, fast, productive.
 Pick three.
 Trust me.";
-        assert_eq!(vec!["Rust:", "Trust me."], search_case_insensitive(query, contents));       
+        assert_eq!(
+            vec!["Rust:", "Trust me."],
+            search_case_insensitive(query, contents)
+        );
     }
 }
